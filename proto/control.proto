@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+service Control {
+	rpc Open(OpenRequest) returns (OpenResponse) {};
+}
+
+message OpenRequest {
+	string url = 1;
+}
+
+message OpenResponse {
+	string error = 1; 
+}
+

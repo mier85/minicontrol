@@ -19,9 +19,8 @@ import fmt "fmt"
 import math "math"
 
 import (
-	client "github.com/micro/go-micro/client"
-	server "github.com/micro/go-micro/server"
 	context "golang.org/x/net/context"
+	grpc "google.golang.org/grpc"
 )
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -44,6 +43,13 @@ func (m *OpenRequest) String() string            { return proto.CompactTextStrin
 func (*OpenRequest) ProtoMessage()               {}
 func (*OpenRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
+func (m *OpenRequest) GetUrl() string {
+	if m != nil {
+		return m.Url
+	}
+	return ""
+}
+
 type OpenResponse struct {
 	Error string `protobuf:"bytes,1,opt,name=error" json:"error,omitempty"`
 }
@@ -53,6 +59,13 @@ func (m *OpenResponse) String() string            { return proto.CompactTextStri
 func (*OpenResponse) ProtoMessage()               {}
 func (*OpenResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
+func (m *OpenResponse) GetError() string {
+	if m != nil {
+		return m.Error
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterType((*OpenRequest)(nil), "OpenRequest")
 	proto.RegisterType((*OpenResponse)(nil), "OpenResponse")
@@ -60,37 +73,29 @@ func init() {
 
 // Reference imports to suppress errors if they are not otherwise used.
 var _ context.Context
-var _ client.Option
-var _ server.Option
+var _ grpc.ClientConn
+
+// This is a compile-time assertion to ensure that this generated file
+// is compatible with the grpc package it is being compiled against.
+const _ = grpc.SupportPackageIsVersion4
 
 // Client API for Control service
 
 type ControlClient interface {
-	Open(ctx context.Context, in *OpenRequest, opts ...client.CallOption) (*OpenResponse, error)
+	Open(ctx context.Context, in *OpenRequest, opts ...grpc.CallOption) (*OpenResponse, error)
 }
 
 type controlClient struct {
-	c           client.Client
-	serviceName string
+	cc *grpc.ClientConn
 }
 
-func NewControlClient(serviceName string, c client.Client) ControlClient {
-	if c == nil {
-		c = client.NewClient()
-	}
-	if len(serviceName) == 0 {
-		serviceName = "control"
-	}
-	return &controlClient{
-		c:           c,
-		serviceName: serviceName,
-	}
+func NewControlClient(cc *grpc.ClientConn) ControlClient {
+	return &controlClient{cc}
 }
 
-func (c *controlClient) Open(ctx context.Context, in *OpenRequest, opts ...client.CallOption) (*OpenResponse, error) {
-	req := c.c.NewRequest(c.serviceName, "Control.Open", in)
+func (c *controlClient) Open(ctx context.Context, in *OpenRequest, opts ...grpc.CallOption) (*OpenResponse, error) {
 	out := new(OpenResponse)
-	err := c.c.Call(ctx, req, out, opts...)
+	err := grpc.Invoke(ctx, "/Control/Open", in, out, c.cc, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -99,20 +104,43 @@ func (c *controlClient) Open(ctx context.Context, in *OpenRequest, opts ...clien
 
 // Server API for Control service
 
-type ControlHandler interface {
-	Open(context.Context, *OpenRequest, *OpenResponse) error
+type ControlServer interface {
+	Open(context.Context, *OpenRequest) (*OpenResponse, error)
 }
 
-func RegisterControlHandler(s server.Server, hdlr ControlHandler, opts ...server.HandlerOption) {
-	s.Handle(s.NewHandler(&Control{hdlr}, opts...))
+func RegisterControlServer(s *grpc.Server, srv ControlServer) {
+	s.RegisterService(&_Control_serviceDesc, srv)
 }
 
-type Control struct {
-	ControlHandler
+func _Control_Open_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(OpenRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ControlServer).Open(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/Control/Open",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ControlServer).Open(ctx, req.(*OpenRequest))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
-func (h *Control) Open(ctx context.Context, in *OpenRequest, out *OpenResponse) error {
-	return h.ControlHandler.Open(ctx, in, out)
+var _Control_serviceDesc = grpc.ServiceDesc{
+	ServiceName: "Control",
+	HandlerType: (*ControlServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Open",
+			Handler:    _Control_Open_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "control.proto",
 }
 
 func init() { proto.RegisterFile("control.proto", fileDescriptor0) }

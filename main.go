@@ -1,15 +1,16 @@
 package main
 
 import (
-	"flag"
-
-	"github.com/micro/go-micro"
-	"github.com/skratchdot/open-golang/open"
-
-	"log"
-
 	proto "github.com/mier85/minicontrol/proto"
+
+	"flag"
+	"log"
+	"net"
+	"strconv"
+
+	"github.com/skratchdot/open-golang/open"
 	"golang.org/x/net/context"
+	"google.golang.org/grpc"
 )
 
 type (
@@ -21,31 +22,32 @@ func NewHandler() *Handler {
 	return &Handler{}
 }
 
-func (h *Handler) Open(ctx context.Context, in *proto.OpenRequest, out *proto.OpenResponse) error {
-	log.Printf("gonna open: %s", in.Url)
+func (h *Handler) Open(ctx context.Context, in *proto.OpenRequest) (*proto.OpenResponse, error) {
+	log.Printf("i am going to open this url: %s", in.Url)
 	err := open.Run(in.Url)
 	if nil != err {
-		out.Error = err.Error()
+		return &proto.OpenResponse{Error: err.Error()}, nil
 	}
-	return nil
+	return &proto.OpenResponse{Error: ""}, nil
 }
 
-var sname = flag.String("name", "com.github.mier85.minicontrol", "name the service operates on")
+var sPort = flag.Int("port", 15555, "port")
 
 func main() {
 	flag.Parse()
-	if *sname == "" {
-		log.Fatalf("service name may not be empty")
+	if 0 == *sPort {
+		log.Fatalf("please specify port")
 	}
-	service := micro.NewService(
-		micro.Name(*sname),
-		micro.Version("0.1"),
-	)
-	service.Init()
+	l, err := net.Listen("tcp", "0.0.0.0:"+strconv.Itoa(*sPort))
+	if nil != err {
+		log.Fatalf("failed listening: %s", err.Error())
+	}
+	defer l.Close()
+	server := grpc.NewServer()
 
-	proto.RegisterControlHandler(service.Server(), NewHandler())
-
-	if err := service.Run(); err != nil {
-		log.Fatal(err)
+	proto.RegisterControlServer(server, NewHandler())
+	err = server.Serve(l)
+	if nil != err {
+		log.Fatalf("failed serving: %s", err.Error())
 	}
 }
